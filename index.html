@@ -1087,18 +1087,17 @@
             }
             // --- END: CORRECTED GSAP SCROLL-DRIVEN PROCESS TIMELINE ---
 
-            /* === START: NEW PROJECT SLIDER LOGIC === */
+            /* === START: NEW PROJECT SLIDER LOGIC (UPDATED WITH SWIPE DETECTION) === */
             const projectSliderContainer = document.getElementById('project-slider-track');
 
             if (projectSliderContainer) {
-                // UPDATED: Replaced blade with local assets string
                 const projectData = [
-                    { title: "Integrated Power Grid", description: "A state-of-the-art power distribution system for a new industrial park.", image: "assets/project-1.jpeg", link: "#" },
-                    { title: "Telecommunication Hub", description: "Structured cabling and PABX system for a major corporate headquarters.", image: "assets/project-2.jpeg", link: "#" },
-                    { title: "Smart Building Security", description: "Advanced CCTV and building control systems for a high-security government facility.", image: "assets/project-3.jpeg", link: "#" },
-                    { title: "Data Center HVAC", description: "Precision climate control and ventilation for a Tier IV data center.", image: "assets/project-4.jpeg", link: "#" },
-                    { title: "High-Rise Fire Safety", description: "A comprehensive fire detection, alarm, and suppression system for a 50-story tower.", image: "assets/project-5.jpeg", link: "#" },
-                    { title: "Water Treatment Plant", description: "Clean water distribution and treatment infrastructure for a new township.", image: "assets/project-6.jpeg", link: "#" },
+                    { title: "Integrated Power Grid", description: "A state-of-the-art power distribution system for a new industrial park.", image: `{{ asset('project-1.jpeg') }}`, link: "#" },
+                    { title: "Telecommunication Hub", description: "Structured cabling and PABX system for a major corporate headquarters.", image: `{{ asset('project-2.jpeg') }}`, link: "#" },
+                    { title: "Smart Building Security", description: "Advanced CCTV and building control systems for a high-security government facility.", image: `{{ asset('project-3.jpeg') }}`, link: "#" },
+                    { title: "Data Center HVAC", description: "Precision climate control and ventilation for a Tier IV data center.", image: `{{ asset('project-4.jpeg') }}`, link: "#" },
+                    { title: "High-Rise Fire Safety", description: "A comprehensive fire detection, alarm, and suppression system for a 50-story tower.", image: `{{ asset('project-5.jpeg') }}`, link: "#" },
+                    { title: "Water Treatment Plant", description: "Clean water distribution and treatment infrastructure for a new township.", image: `{{ asset('project-6.jpeg') }}`, link: "#" },
                 ];
 
                 const sliderTrack = document.getElementById('project-slider-track');
@@ -1117,6 +1116,7 @@
                 // --- Dragging State ---
                 let isDragging = false;
                 let startPos = 0;
+                let startTime = 0; // Added for swipe velocity
                 let currentTranslate = 0;
                 let prevTranslate = 0;
                 let dragOffset = 0;
@@ -1162,7 +1162,7 @@
                                 <div class="project-card-content">
                                     <h3 class="project-card-title">${project.title}</h3>
                                     <p class="project-card-description">${project.description}</p>
-                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -1210,7 +1210,7 @@
                     currentTranslate = -currentSlide * slideWidth;
                     prevTranslate = currentTranslate;
 
-                    sliderTrack.style.transition = instant ? 'none' : 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                    sliderTrack.style.transition = instant ? 'none' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                     sliderTrack.style.transform = `translateX(${currentTranslate}px)`;
 
                     updateDots();
@@ -1244,20 +1244,24 @@
                 
                 const stopAutoSlide = () => clearInterval(autoSlideInterval);
 
-                // --- NEW: Animation loop for smooth dragging ---
                 const dragAnimationLoop = () => {
                     if (!isMoving) return;
                     sliderTrack.style.transform = `translateX(${currentTranslate}px)`;
                     animationFrameId = requestAnimationFrame(dragAnimationLoop);
                 };
 
-                // 3. DRAG EVENT LISTENERS (UPDATED)
+                // 3. DRAG EVENT LISTENERS (UPDATED WITH SWIPE LOGIC)
                 const onPointerDown = (e) => {
                     if (isAnimating) return;
                     isDragging = true;
-                    isMoving = false; // Reset moving flag
+                    isMoving = false;
+                    
+                    // Capture start time for velocity calculation
+                    startTime = new Date().getTime();
+                    
                     startPos = e.clientX || e.touches[0].clientX;
                     prevTranslate = currentTranslate;
+                    
                     sliderTrack.style.transition = 'none';
                     stopAutoSlide();
                     
@@ -1285,17 +1289,31 @@
                     isMoving = false;
                     cancelAnimationFrame(animationFrameId);
 
-                    sliderTrack.style.transition = 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                    sliderTrack.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
 
-                    // --- THIS IS THE FIX ---
-                    // Instead of checking a threshold, we calculate the nearest slide
-                    // based on the final drag position.
-                    const newSlide = Math.round(-currentTranslate / slideWidth);
+                    // === SWIPE DETECTION LOGIC ===
+                    const endTime = new Date().getTime();
+                    const timeTaken = endTime - startTime;
+                    const moveThreshold = 40; // Pixels to count as a "move"
+                    
+                    let targetSlide = currentSlide;
 
-                    // Go to that new, calculated slide.
-                    goToSlide(newSlide); 
-                    // --- END OF FIX ---
+                    // 1. Check if it was a fast swipe (under 300ms)
+                    if (timeTaken < 300 && Math.abs(dragOffset) > moveThreshold) {
+                        if (dragOffset < 0) {
+                            // Swiped LEFT -> Next Slide
+                            targetSlide = currentSlide + 1;
+                        } else {
+                            // Swiped RIGHT -> Prev Slide
+                            targetSlide = currentSlide - 1;
+                        }
+                    } 
+                    // 2. Slow drag: snap to nearest slide based on position
+                    else {
+                        targetSlide = Math.round(-currentTranslate / slideWidth);
+                    }
 
+                    goToSlide(targetSlide); 
                     startAutoSlide();
 
                     window.removeEventListener('pointermove', onPointerMove);
