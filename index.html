@@ -573,7 +573,7 @@
         </section>
         
         <section id="process" class="bg-white relative">
-            <div id="process-scroll-wrapper" class="relative h-[400vh]">
+            <div id="process-scroll-wrapper" class="relative h-[800vh] lg:h-[400vh]">
 
                 <div id="process-pinned-element" class="sticky top-0 w-full h-screen flex flex-col items-center justify-center overflow-hidden">
                     <div id="particles-container"></div>
@@ -998,8 +998,8 @@
             }, { threshold: 0.2 });
             document.querySelectorAll('#home').forEach(el => generalObserver.observe(el)); 
 
-            // --- START: FINAL GSAP SCROLL-DRIVEN PROCESS TIMELINE ---
-          if (document.getElementById('process-scroll-wrapper')) {
+            /* === START: FINAL GSAP SCROLL-DRIVEN PROCESS TIMELINE (UPDATED WITH SNAPPING) === */
+            if (document.getElementById('process-scroll-wrapper')) {
                 gsap.registerPlugin(ScrollTrigger);
 
                 const steps = gsap.utils.toArray(".process-step-content");
@@ -1014,18 +1014,12 @@
                     `<img src="assets/quality-assurance.png" alt="QA" class="w-16 h-16 object-contain" />`,
                 ];
 
-                // Helper to update Icon AND Node Classes
                 const updateStep = (index) => {
-                    // 1. Update Icon
                     centralIcon.innerHTML = icons[index];
-                    
-                    // 2. Animate the new PNG (Changed 'svg' to 'img')
                     gsap.fromTo(centralIcon.querySelector('img'), 
                         { opacity: 0, scale: 0.8 }, 
                         { opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(1.7)' }
                     );
-
-                    // 3. Update the little grey/blue dots (Nodes)
                     nodes.forEach(n => n.classList.remove('is-active'));
                     if(nodes[index]) nodes[index].classList.add('is-active');
                 };
@@ -1037,11 +1031,19 @@
                         end: "bottom bottom",
                         scrub: 1.5,
                         pin: "#process-pinned-element",
+                        // === NEW: SNAPPING CONFIGURATION ===
+                        snap: {
+                            snapTo: "labels", // Snap to the labels we defined below
+                            duration: { min: 0.2, max: 0.6 }, // Snap animation speed
+                            delay: 0.2, // Wait 0.2s after user stops scrolling before snapping
+                            ease: "power1.inOut"
+                        }
                     }
                 });
 
                 // Intro Animation
                 masterTl
+                    .addLabel("start") // Label 0
                     .to("#process-header", { opacity: 1, duration: 1 })
                     .to("#dot-bg", { opacity: 0.6, duration: 1 }, "-=0.5")
                     .to(["#ring-1", "#ring-2", "#ring-3"], { attr: { r: (i) => [80, 130, 180][i] }, duration: 2, ease: 'power2.inOut' }, "-=1")
@@ -1050,26 +1052,19 @@
                 // Main Steps Loop
                 steps.forEach((step, index) => {
                     masterTl
+                        .addLabel(`step-${index + 1}`) // Adds labels: step-1, step-2, etc.
                         .to(step, { 
                             opacity: 1, 
                             y: 0, 
                             scale: 1, 
                             duration: 1, 
                             ease: 'power2.out',
-                            
-                            // Trigger icon change immediately when this step STARTS
-                            onStart: () => {
-                                updateStep(index);
-                            },
-                            // Handle reversing the icon/node when scrolling back up
+                            onStart: () => { updateStep(index); },
                             onReverseComplete: () => {
-                                if (index > 0) {
-                                    // If reversing from 2->1, 3->2, etc.
-                                    updateStep(index - 1);
-                                } else {
-                                    // If reversing from 1->0 (Back to start)
-                                    centralIcon.innerHTML = ''; // Remove the image completely
-                                    nodes[index].classList.remove('is-active'); // Turn off the first dot
+                                if (index > 0) { updateStep(index - 1); } 
+                                else { 
+                                    centralIcon.innerHTML = ''; 
+                                    nodes[index].classList.remove('is-active'); 
                                 }
                             }
                         })
@@ -1079,13 +1074,13 @@
 
                 // Outro Animation
                 masterTl
+                    .addLabel("end")
                     .to(nodes, { autoAlpha: 0, duration: 0.5 })
                     .to(["#ring-1", "#ring-2", "#ring-3"], { attr: { r: (i) => [60, 120, 180][i] }, duration: 2, ease: 'power2.inOut' })
                     .to("#dot-bg", { opacity: 0, duration: 1 }, "-=1")
-                    // Changed 'svg' to 'img' here too just in case
                     .to("#process-central-icon img", { opacity: 0, scale: 0.8, duration: 0.5 }, "<");
             }
-            // --- END: CORRECTED GSAP SCROLL-DRIVEN PROCESS TIMELINE ---
+            /* === END: FINAL GSAP SCROLL-DRIVEN PROCESS TIMELINE === */
 
             /* === START: NEW PROJECT SLIDER LOGIC === */
             const projectSliderContainer = document.getElementById('project-slider-track');
